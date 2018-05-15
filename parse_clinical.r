@@ -1,10 +1,10 @@
 require(readr)
 
 # Read in file as data frame
-clinical_data <- as.data.frame(read_tsv('~/Documents/breastcancer/GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt'))
+clinical_data <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt'))
 
 # File of BRCA patient IDs
-brca_IDs <- as.data.frame(read_tsv('~/Documents/breastcancer/brca_patients.tsv'))
+brca_IDs <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/brca_patients.tsv'))
 
 # Set first column as row names and delete first three columns
 rownames(clinical_data) <- clinical_data$X1
@@ -33,6 +33,5 @@ clinical_data$TNBC <- ifelse(clinical_data$ER == "Negative" & clinical_data$HER2
 # Create Status column.
 clinical_data$Status <- ifelse(clinical_data$TNBC==TRUE, "TNBC", ifelse(clinical_data$HER2=="Positive", "HER2+", "Other"))
 
-
 # Write to a new file
-write.table(clinical_data, '~/Documents/breastcancer/er_her2_pr.tsv', quote = FALSE, sep = "\t", row.names = FALSE)
+write.table(clinical_data, '~/Documents/BreastCancer_TK1/clinical_data.tsv', quote = FALSE, sep = "\t", row.names = FALSE)
