@@ -1,0 +1,62 @@
+---
+title: "TK1 Expression in HER2+ vs. TNBC"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+library(rmarkdown)
+library(dplyr)
+require(readr)
+```
+
+```{r}
+# ----- Parse file for patient IDs with breast cancer (BRCA) only -----
+brca_IDs <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/GSE62944_06_01_15_TCGA_24_CancerType_Samples.txt'))
+colnames(brca_IDs) <- c("Patient", "CancerType")
+brca_IDs <- brca_IDs[grep("BRCA", brca_IDs$Cancer), ]
+
+
+# ----- Parse clinical data file (tumor) for HER2+ and TNBC status -----
+clinical_data <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt'))
+rownames(clinical_data) <- clinical_data$X1
+clinical_data <- clinical_data[-c(1:3)]
+
+# Extract BRCA patient IDs only (cols) and ER, HER2, PR (rows)
+clinical_data <- clinical_data[, names(clinical_data)[names(clinical_data) %in% brca_IDs$Patient]]
+clinical_data <- clinical_data[c("er_status_by_ihc", "her2_status_by_ihc", "pr_status_by_ihc"),]
+
+# Transpose data frame
+clinical_data <- t(clinical_data)
+clinical_data <- cbind(rownames(clinical_data), data.frame(clinical_data, row.names = NULL))
+colnames(clinical_data) <- c("Patient", "ER", "HER2", "PR")
+
+# If not "Positve" or "Negative" change word to NA and remove rows that have NA in any column
+clinical_data$ER[(clinical_data$ER != "Positive" & clinical_data$ER != "Negative")] <- NA
+clinical_data$HER2[(clinical_data$HER2 != "Positive" & clinical_data$HER2 != "Negative")] <- NA
+clinical_data$PR[(clinical_data$PR != "Positive" & clinical_data$PR != "Negative")] <- NA
+clinical_data <- clinical_data[complete.cases(clinical_data),]
+
+# TNBC: negative in ER, HER2, PR
+clinical_data$TNBC <- ifelse(clinical_data$ER == "Negative" & clinical_data$HER2 == "Negative" & clinical_data$PR == "Negative", TRUE, FALSE) 
+
+# Status: TNBC, HER2+, Other
+clinical_data$Status <- ifelse(clinical_data$TNBC==TRUE, "TNBC", ifelse(clinical_data$HER2=="Positive", "HER2+", "Other"))
+
+# Write to a new file
+write.table(clinical_data, '~/Documents/BreastCancer_TK1/clinical_data.tsv', quote = FALSE, sep = "\t", row.names = FALSE)
+
+
+# ----- Merge RNA seq data with clinical data -----
+rna_data <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/Evita_RNASeq.tsv.gz'))
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
