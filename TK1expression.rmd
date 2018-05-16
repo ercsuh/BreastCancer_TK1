@@ -2,22 +2,23 @@
 title: "TK1 Expression in HER2+ vs. TNBC"
 output: html_document
 ---
-
+## Parsing Data
 ```{r setup, include=FALSE}
-#knitr::opts_chunk$set(echo = TRUE)
 library(rmarkdown)
 library(dplyr)
 require(readr)
 ```
 
+Parse file for TCGA patient IDs with breast cancer (BRCA) only.
 ```{r}
-# ----- Parse file for patient IDs with breast cancer (BRCA) only -----
 brca_IDs <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/GSE62944_06_01_15_TCGA_24_CancerType_Samples.txt'))
 colnames(brca_IDs) <- c("Patient", "CancerType")
 brca_IDs <- brca_IDs[grep("BRCA", brca_IDs$Cancer), ]
+head(brca_IDs)
+```
 
-
-# ----- Parse clinical data file (tumor) for HER2+ and TNBC status -----
+Parse clinical data tumor file to get HER2+ and TNBC status in BRCA patients.
+```{r}
 clinical_data <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt'))
 rownames(clinical_data) <- clinical_data$X1
 clinical_data <- clinical_data[-c(1:3)]
@@ -43,20 +44,51 @@ clinical_data$TNBC <- ifelse(clinical_data$ER == "Negative" & clinical_data$HER2
 # Status: TNBC, HER2+, Other
 clinical_data$Status <- ifelse(clinical_data$TNBC==TRUE, "TNBC", ifelse(clinical_data$HER2=="Positive", "HER2+", "Other"))
 
+head(clinical_data)
 # Write to a new file
-write.table(clinical_data, '~/Documents/BreastCancer_TK1/clinical_data.tsv', quote = FALSE, sep = "\t", row.names = FALSE)
+# write.table(clinical_data, '~/Documents/BreastCancer_TK1/clinical_data.tsv', quote = FALSE, sep = "\t", row.names = FALSE)
+```
 
-
-# ----- Merge RNA seq data with clinical data -----
+Merge RNA seq data of gene expressions with clinical data.
+```{r}
 rna_data <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/Evita_RNASeq.tsv.gz'))
+colnames(rna_data)[1] <- "Patient"
+clinical_data$Patient <- substr(clinical_data$Patient, 0, 12)
+
+total_data <- merge(clinical_data, rna_data, by = "Patient")
+total_data$CancerType <- NULL
+head(total_data)
 ```
 
-## Including Plots
+## Including Scatterplots
 
-You can also embed plots, for example:
+please first make scatterplots (in ggplot2) that illustrate 
+- TK1 expression on the x axis and each one of these "stemness" genes on the y axis (one scatterplot per stemness gene). 
+- Please do this separately for HER2+ samples and TNBC samples.total of 12 scatterplots. 
+- Please use log2-transformed values for these graphs, too.
+- calculate the Spearman correlation coefficient that indicates the correlation between TK1 and each respective gene. You calculate this in R using:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r, echo=FALSE}
+library(ggplot2)
+
+stemness_genes <- names(total_data)[names(total_data) %in% c("TK1", "CD44", "SNAI1", "SNAI2", "TWIST1", "ZEB1", "TGFB1")]
+for (gene_col in names(stemness_genes)) {
+  total_data$gene_col <- log2(total_data$gene_col + 1)
+}
+
+HER2 <- total_data[which(total_data$Status == "HER2+"),]
+TNBC <- total_data[which(total_data$Status == "TNBC"),]
+
+make_scatterplot <- function(df, stem_gene, title) {
+  ggplot(df, aes(x = TK1, y = df[stem_gene])) + geom_point() + ylab(stem_gene) + ggtitle(paste(title, "- TK1 vs.", stem_gene)) + scale_x_continuous() + scale_y_continuous()
+}
+
+for (gene in stemness_genes[2:7]) {
+  print(make_scatterplot(HER2, gene, "HER2+"))
+  print(make_scatterplot(TNBC, gene, "TNBC"))
+}
+
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## Calculating the Spearman Correlation coefficient
+cor(x, y, method="spearman")
