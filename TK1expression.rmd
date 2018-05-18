@@ -2,18 +2,18 @@
 title: "TK1 Expression in HER2+ vs. TNBC"
 output: html_document
 ---
-## Parsing Data
-If you would like to run the code on your own, replace the information in the `read_tsv()` functions with your path to the file or a connection. Remember to enclose the info in quotes. 
+## Parsing Data  
 
-```{r setup, message=FALSE}
+```{r setup, message=FALSE, warning=FALSE}
 library(rmarkdown)
 library(dplyr)
 library(ggplot2)
+library(tidyverse)
 require(readr)
 ```
-
-The code below extracts TCGA patient IDs with breast cancer (annotated as "BRCA") from a file.
-```{r, message=FALSE}
+  
+Extract TCGA patient IDs with breast cancer (annotated as "BRCA") from file.  
+```{r, message=FALSE, warning=FALSE}
 # Read in file
 brca_IDs <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/GSE62944_06_01_15_TCGA_24_CancerType_Samples.txt'))
 colnames(brca_IDs) <- c("Patient", "CancerType")
@@ -21,9 +21,9 @@ colnames(brca_IDs) <- c("Patient", "CancerType")
 # Extract patient IDs with BRCA
 brca_IDs <- brca_IDs[grep("BRCA", brca_IDs$Cancer), ]
 ```
-
-The code below parses the clinical data file to obtain HER2+ and TNBC status in BRCA patients.
-```{r, message=FALSE}
+  
+Parse clinical data file to obtain HER2+ and TNBC status of BRCA patients.  
+```{r, message=FALSE, warning=FALSE}
 # Read in file
 clinical_data <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt'))
 rownames(clinical_data) <- clinical_data$X1
@@ -55,9 +55,9 @@ clinical_data$Status <- factor(clinical_data$Status, levels=c("HER2+", "TNBC"))
 # Keep only the first 12 characters of IDs (to merge with RNA data later on)
 clinical_data$Patient <- substr(clinical_data$Patient, 0, 12)
 ```
-
-The code below merges the gene expressions (RNA) data with the clinical data.
-```{r, message=FALSE}
+  
+Merge gene expression (RNA) data with clinical data.  
+```{r, message=FALSE, warning=FALSE}
 # Read in file
 rna_data <- as.data.frame(read_tsv('~/Documents/BreastCancer_TK1/Evita_RNASeq.tsv.gz'))
 colnames(rna_data)[1] <- "Patient"
@@ -66,11 +66,11 @@ colnames(rna_data)[1] <- "Patient"
 total_data <- merge(clinical_data, rna_data, by = "Patient")
 total_data$CancerType <- NULL
 ```
-
+  
+  
 ## Plots
-
-The code below prepares the merged data to create plots. 
-```{r, message=FALSE}
+Prepare merged data to create plots.  
+```{r, message=FALSE, warning=FALSE}
 # log2-transform expression values of genes to mitigate the effects of outliers
 stemness_genes <- names(total_data)[names(total_data) %in% c("TK1", "CD44", "SNAI1", "SNAI2", "TWIST1", "ZEB1", "TGFB1")]
 for (gene_col in stemness_genes) {
@@ -81,27 +81,42 @@ for (gene_col in stemness_genes) {
 HER2 <- filter(total_data, Status == "HER2+")
 TNBC <- filter(total_data, Status == "TNBC")
 ```
+  
+Boxplot illustrates TK1 expression in HER2+ and TNBC samples.  
+```{r, message=FALSE, warning=FALSE}
+# Wilcoxon test
+wilcox <- wilcox.test(HER2$TK1, TNBC$TK1) ########FIXME#######
+wilcox_p <- round(wilcox$p.value, digits=2)
 
-
-```{r, message=FALSE}
-ggplot(total_data, aes(x = Status, y = TK1)) + geom_boxplot()
-# theme_bw, base_size = 18.
-# extend line to include outliers
-# add layer geom_jitter. add transparency to dots (alpha)
-# y axis: TK1 Expression\n(TPM, log2 transformed)
-# title: TK1 Expression By subtype (p = pval from wilcox.test) (round to two dec)
+# Create boxplot
+ggplot(total_data, aes(x=Status, y=TK1)) + 
+  geom_boxplot(coef = 100, outlier.shape = NA) + 
+  geom_jitter(alpha = 0.3) +
+  ylab("TK1 Expression\n(TPM, log2 transformed)") +
+  ggtitle(paste("TK1 Expression by Subtype (p=", wilcox_p, ")", sep="")) + #######FIXME: WILCOX TEST
+  theme_bw(base_size = 18) +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
-
-Scatterplots illustrate TK1 expression on the x axis and each one of the "stemness" genes on the y axis for HER2+ and TNBC samples.
-```{r}
+  
+  
+Scatterplots illustrate the correlation between TK1 expression and each one of the "stemness" genes for HER2+ and TNBC samples.
+Calculate the spearman correlation coefficient (ρ) for each plot.  
+```{r, message=FALSE, warning=FALSE}
 make_scatterplot <- function(df, stem_gene, title) {
+  # Spearman correlation coefficient
+  rho <- cor(df$TK1, df[stem_gene], method="spearman")
+  rho <- round(rho, digits=2)
+  # Create scatterplots
   ggplot(df, aes(x = TK1, y = df[stem_gene])) + 
-    geom_point() + ylab(stem_gene) + 
-    ggtitle(paste(title, "- TK1 vs.", stem_gene)) +  #center title. add scc, round to two decimal in perentheses. with symbol.
-    scale_x_continuous() + scale_y_continuous() + 
-    theme_bw(base_size = 18)
+    geom_point() + 
+    geom_smooth(method='lm', color="red", size=2, se=FALSE) +
+    ylab(stem_gene) + 
+    ggtitle(paste(title, ": TK1 vs. ", stem_gene, " (ρ=", rho, ")", sep="")) +
+    scale_x_continuous() + 
+    scale_y_continuous() + 
+    theme_bw(base_size = 18) +
+    theme(plot.title = element_text(hjust = 0.5))
 }
-# add regression line to ggplot. red, kind of thick. 
 
 for (gene in stemness_genes[2:7]) {
   print(make_scatterplot(HER2, gene, "HER2+"))
@@ -110,23 +125,3 @@ for (gene in stemness_genes[2:7]) {
 
 ```
 
-## Calculating the Spearman Correlation coefficient
-The code below calculates the Spearman correlation coefficient that indicates the correlation between TK1 and each respective gene.
-```{r} 
-print_spearman <- function(yval) {
-  print(paste("The spearman correlation coefficient between TK1 and", yval, "is", cor(total_data$TK1, total_data$yval, method="spearman")))
-}
-
-spearman_vals <- data.frame()
-spearman_vals$Genes <- stemness_genes[2:7]
-spearman_vals$HER2 <- cor(HER2$TK1, HER2$(stemness_genes2:7), method="spearman")
-head(spearman_vals)
-
-print(paste("The spearman correlation coefficient between TK1 and CD44 in HER2+ samples is", cor(HER2$TK1, HER2$CD44, method="spearman"), "."))
-print(paste("The spearman correlation coefficient between TK1 and SNAI1 in HER2+ samples is", cor(HER2$TK1, HER2$SNAI1, method="spearman"), "."))
-print(paste("The spearman correlation coefficient between TK1 and SNAI2 in HER2+ samples is", cor(HER2$TK1, HER2$SNAI2, method="spearman"), "."))
-print(paste("The spearman correlation coefficient between TK1 and TWIST1 in HER2+ samples is", cor(HER2$TK1, HER2$TWIST1, method="spearman"), "."))
-print(paste("The spearman correlation coefficient between TK1 and ZEB1 in HER2+ samples is", cor(HER2$TK1, HER2$ZEB1, method="spearman"), "."))
-print(paste("The spearman correlation coefficient between TK1 and TGFB1 in HER2+ samples is", cor(HER2$TK1, HER2$TGFB1, method="spearman"), "."))
-
-```
