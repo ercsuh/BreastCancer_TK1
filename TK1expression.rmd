@@ -89,7 +89,7 @@ TNBC <- filter(total_data, Status == "TNBC")
 Boxplot illustrates TK1 expression in HER2+ and TNBC samples.  
 ```{r, message=FALSE, warning=FALSE}
 # Wilcoxon test
-wilcox <- wilcox.test(HER2$TK1, TNBC$TK1) ########FIXME#######
+wilcox <- wilcox.test(HER2$TK1, TNBC$TK1)
 wilcox_p <- formatC(wilcox$p.value, format = "g", digits = 2)
 
 # Create boxplot
@@ -97,7 +97,7 @@ ggplot(total_data, aes(x=Status, y=TK1)) +
   geom_boxplot(coef = 100, outlier.shape = NA) + 
   geom_jitter(alpha = 0.3) +
   ylab("TK1 Expression\n(TPM, log2 transformed)") +
-  ggtitle(paste("TK1 Expression by Subtype (p=", wilcox_p, ")", sep="")) + #######FIXME: WILCOX TEST
+  ggtitle(paste("TK1 Expression by Subtype (p=", wilcox_p, ")", sep="")) +
   theme_bw(base_size = 18) +
   theme(plot.title = element_text(hjust = 0.5))
 ```
