@@ -109,9 +109,9 @@ make_scatterplot <- function(df, stem_gene, title) {
   # Create scatterplots
   ggplot(df, aes(x = TK1, y = df[stem_gene])) + 
     geom_point() + 
-    geom_smooth(method='lm', color="red", size=2, se=FALSE) +
+    geom_smooth(method='lm', color="red", se=FALSE) +
     ylab(stem_gene) + 
-    ggtitle(paste(title, ": TK1 vs. ", stem_gene, " (ρ=", rho, ")", sep="")) +
+    ggtitle(paste(title, ": TK1 vs. ", stem_gene, " (rho=", rho, ")", sep="")) +
     scale_x_continuous() + 
     scale_y_continuous() + 
     theme_bw(base_size = 18) +
