@@ -15,7 +15,8 @@ require(readr)
 Extract TCGA patient IDs with breast cancer (annotated as "BRCA") from file.  
 ```{r, message=FALSE, warning=FALSE}
 # Download and read in file
-download.file('https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5FCancerType%5FSamples%2Etxt%2Egz', destfile = "./GSE62944_06_01_15_TCGA_24_CancerType_Samples.txt.gz")
+download.file('https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5FCancerType%5FSamples%2Etxt%2Egz', 
+              destfile = "./GSE62944_06_01_15_TCGA_24_CancerType_Samples.txt.gz")
 brca_IDs <- as.data.frame(read_tsv("GSE62944_06_01_15_TCGA_24_CancerType_Samples.txt.gz"))
 
 colnames(brca_IDs) <- c("Patient", "CancerType")
@@ -27,7 +28,8 @@ brca_IDs <- brca_IDs[grep("BRCA", brca_IDs$Cancer), ]
 Parse clinical data file to obtain HER2+ and TNBC status of BRCA patients.  
 ```{r, message=FALSE, warning=FALSE}
 # Download and read in file
-download.file('https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5F548%5FClinical%5FVariables%5F9264%5FSamples%2Etxt%2Egz', destfile = "./GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt.gz")
+download.file('https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5F548%5FClinical%5FVariables%5F9264%5FSamples%2Etxt%2Egz', 
+              destfile = "./GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt.gz")
 clinical_data <- as.data.frame(read_tsv('GSE62944_06_01_15_TCGA_24_548_Clinical_Variables_9264_Samples.txt.gz'))
 
 rownames(clinical_data) <- clinical_data$X1
@@ -49,10 +51,12 @@ clinical_data$PR[(clinical_data$PR != "Positive" & clinical_data$PR != "Negative
 clinical_data <- clinical_data[complete.cases(clinical_data),]
 
 # TNBC: negative in ER, HER2, PR
-clinical_data$TNBC <- ifelse(clinical_data$ER == "Negative" & clinical_data$HER2 == "Negative" & clinical_data$PR == "Negative", TRUE, FALSE) 
+clinical_data$TNBC <- ifelse(
+  clinical_data$ER == "Negative" & clinical_data$HER2 == "Negative" & clinical_data$PR == "Negative", TRUE, FALSE) 
 
 # Status: TNBC, HER2+, Other
-clinical_data$Status <- ifelse(clinical_data$TNBC==TRUE, "TNBC", ifelse(clinical_data$HER2=="Positive", "HER2+", "Other"))
+clinical_data$Status <- ifelse(clinical_data$TNBC==TRUE, "TNBC", 
+                               ifelse(clinical_data$HER2=="Positive", "HER2+", "Other"))
 clinical_data <- filter(clinical_data, Status != "Other")
 clinical_data$Status <- factor(clinical_data$Status, levels=c("HER2+", "TNBC"))
 
@@ -76,7 +80,9 @@ total_data$CancerType <- NULL
 Prepare merged data to create plots.  
 ```{r, message=FALSE, warning=FALSE}
 # log2-transform expression values of genes to mitigate the effects of outliers
-stemness_genes <- names(total_data)[names(total_data) %in% c("TK1", "CD44", "SNAI1", "SNAI2", "TWIST1", "ZEB1", "TGFB1")]
+stemness_genes <- names(total_data)[names(total_data) %in% 
+                                      c("TK1", "CD44", "SNAI1", "SNAI2", "TWIST1", "ZEB1", "TGFB1")]
+
 for (gene_col in stemness_genes) {
   total_data[, gene_col] <- log2(total_data[,gene_col] + 1)
 }
