@@ -2,7 +2,8 @@
 title: "TK1 Expression in HER2+ vs. TNBC"
 output: html_document
 ---
-## Parsing Data  
+### Parsing Data  
+All datasets are based on [The Cancer Genome Atlas](https://cancergenome.nih.gov/) (TCGA). The specific version of the data used for analysis can be found [here](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE62944). 
 
 ```{r setup, message=FALSE, warning=FALSE}
 library(rmarkdown)
@@ -12,7 +13,7 @@ library(tidyverse)
 require(readr)
 ```
   
-Extract TCGA patient IDs with breast cancer (annotated as "BRCA") from file.  
+The file below contains a list of patient IDs in TCGA with various cancer types. About 1,000 of these patients had breast cancer (indicated by "BRCA" in the second column). IDs with breast cancer are extracted from this file.  
 ```{r, message=FALSE, warning=FALSE}
 # Download and read in file
 download.file('https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5FCancerType%5FSamples%2Etxt%2Egz', 
@@ -25,7 +26,14 @@ colnames(brca_IDs) <- c("Patient", "CancerType")
 brca_IDs <- brca_IDs[grep("BRCA", brca_IDs$Cancer), ]
 ```
   
-Parse clinical data file to obtain HER2+ and TNBC status of BRCA patients.  
+The file below contains clinical data about TCGA patients from the first file we parsed. Data is parsed for BRCA IDs only and gathered from rows that start with the following: 
+
+* er_status_by_ihc  
+* her2_status_by_ihc  
+* pr_status_by_ihc  
+
+If the patient's status is negative in all three categories, then the patient has TNBC.  
+If the patient's status is positive in her2_status_by_ihc, then the patient is HER2+.
 ```{r, message=FALSE, warning=FALSE}
 # Download and read in file
 download.file('https://www.ncbi.nlm.nih.gov/geo/download/?acc=GSE62944&format=file&file=GSE62944%5F06%5F01%5F15%5FTCGA%5F24%5F548%5FClinical%5FVariables%5F9264%5FSamples%2Etxt%2Egz', 
@@ -64,7 +72,7 @@ clinical_data$Status <- factor(clinical_data$Status, levels=c("HER2+", "TNBC"))
 clinical_data$Patient <- substr(clinical_data$Patient, 0, 12)
 ```
   
-Merge gene expression (RNA) data with clinical data.  
+The file containing gene expression (RNA sequencing) data is then parsed and merged with the clinical data.
 ```{r, message=FALSE, warning=FALSE}
 # Read in file
 rna_data <- as.data.frame(read_tsv('Evita_RNASeq.tsv.gz'))
@@ -76,10 +84,11 @@ total_data$CancerType <- NULL
 ```
   
   
-## Plots
-Prepare merged data to create plots.  
+### Plots
+The merged data is prepped in order to create a boxplot and several scatterplots.  
+The gene expression values are log2-transformed in order to mitigate the effects of outliers. 1 is also added to prevent errors in case there are any zero values. 
 ```{r, message=FALSE, warning=FALSE}
-# log2-transform expression values of genes to mitigate the effects of outliers
+# log2-transform expression values
 stemness_genes <- names(total_data)[names(total_data) %in% 
                                       c("TK1", "CD44", "SNAI1", "SNAI2", "TWIST1", "ZEB1", "TGFB1")]
 
@@ -92,7 +101,8 @@ HER2 <- filter(total_data, Status == "HER2+")
 TNBC <- filter(total_data, Status == "TNBC")
 ```
   
-Boxplot illustrates TK1 expression in HER2+ and TNBC samples.  
+The boxplot outputted by the code below illustrates TK1 expression in HER2+ and TNBC samples.  
+Statistical analysis is performed using the [Wilcoxon test](https://en.wikipedia.org/wiki/Mann%E2%80%93Whitney_U_test), which ranks data to determine if a significant difference exists between the samples. The p-value is provided in the title of the boxplot.
 ```{r, message=FALSE, warning=FALSE}
 # Wilcoxon test
 wilcox <- wilcox.test(HER2$TK1, TNBC$TK1)
@@ -106,11 +116,13 @@ ggplot(total_data, aes(x=Status, y=TK1)) +
   ggtitle(paste("TK1 Expression by Subtype (p=", wilcox_p, ")", sep="")) +
   theme_bw(base_size = 18) +
   theme(plot.title = element_text(hjust = 0.5))
+
+# Save boxplot as a pdf file
+ggsave(file="TCGA_boxplot.pdf", width=6.5)
 ```
   
   
-Scatterplots illustrate the correlation between TK1 expression and each one of the "stemness" genes for HER2+ and TNBC samples.
-Calculate the spearman correlation coefficient (ρ) for each plot.  
+The scatterplots outputted by the code below illustrate the correlation of expression between TK1 and each "stemness" gene for HER2+ and TNBC samples individually. The [Spearman correlation coefficient](https://en.wikipedia.org/wiki/Spearman%27s_rank_correlation_coefficient) (ρ or "rho") is calculated and included in the title of each scatterplot to statistically display the correlation. 
 ```{r, message=FALSE, warning=FALSE}
 make_scatterplot <- function(df, stem_gene, title) {
   # Spearman correlation coefficient
@@ -128,9 +140,17 @@ make_scatterplot <- function(df, stem_gene, title) {
     theme(plot.title = element_text(hjust = 0.5))
 }
 
+# Save each scatterplot as a pdf file
+save_pdf <- function(subtype, gene) {
+  file_name <- paste("TCGA_scatterplot_", subtype, "_", gene, ".pdf", sep="")
+  ggsave(file_name, width=6.5)
+}
+
 for (gene in stemness_genes[2:7]) {
   print(make_scatterplot(HER2, gene, "HER2+"))
+  save_pdf("HER2", gene)
   print(make_scatterplot(TNBC, gene, "TNBC"))
+  save_pdf("TNBC", gene)
 }
 
 ```
